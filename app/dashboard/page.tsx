@@ -2,30 +2,35 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const supabase = createClient();
-
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Create client and fetch user only inside useEffect (browser only)
+  const loadUser = useCallback(async () => {
+    const { createClient } = await import("@/lib/supabase");
+    const supabase = createClient();
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      router.push("/signin");
+      return;
+    }
+    setUser(data.user);
+    setLoading(false);
+  }, [router]);
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        router.push("/signin");
-        return;
-      }
-      setUser(data.user);
-      setLoading(false);
-    });
-  }, []);
+    loadUser();
+  }, [loadUser]);
 
   async function handleSignOut() {
+    const { createClient } = await import("@/lib/supabase");
+    const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/signin");
   }
@@ -46,7 +51,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-
         <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 shadow-xl text-center">
 
           {/* Avatar */}
@@ -73,7 +77,7 @@ export default function DashboardPage() {
             <p className="text-gray-400 text-xs mt-1">Your session is active across all connected apps</p>
           </div>
 
-          {/* User ID (for developers) */}
+          {/* User ID */}
           <div className="p-3 rounded-lg bg-gray-800 border border-gray-700 mb-6 text-left">
             <p className="text-xs text-gray-500 mb-1">User ID</p>
             <p className="text-xs text-gray-300 font-mono break-all">{user?.id}</p>
