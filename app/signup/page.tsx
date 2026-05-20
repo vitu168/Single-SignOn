@@ -27,6 +27,9 @@ export default function SignUpPage() {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  function getRedirectUri() {
+    return new URLSearchParams(window.location.search).get("redirect_uri") ?? "";
+  }
 
   async function getSupabase() {
     const { createClient } = await import("@/lib/supabase");
@@ -37,13 +40,17 @@ export default function SignUpPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const redirectUri = getRedirectUri();
     const supabase = await getSupabase();
+    const callbackUrl = redirectUri
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?redirect_uri=${encodeURIComponent(redirectUri)}`
+      : `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: name },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        emailRedirectTo: callbackUrl,
       },
     });
     if (error) { setError(error.message); setLoading(false); return; }
@@ -54,10 +61,14 @@ export default function SignUpPage() {
   async function handleOAuth(provider: "google" | "github") {
     setOauthLoading(provider);
     setError("");
+    const redirectUri = getRedirectUri();
     const supabase = await getSupabase();
+    const callbackUrl = redirectUri
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?redirect_uri=${encodeURIComponent(redirectUri)}`
+      : `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback` },
+      options: { redirectTo: callbackUrl },
     });
     if (error) { setError(error.message); setOauthLoading(null); }
   }

@@ -27,6 +27,9 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
+  function getRedirectUri() {
+    return new URLSearchParams(window.location.search).get("redirect_uri") ?? "";
+  }
 
   async function getSupabase() {
     const { createClient } = await import("@/lib/supabase");
@@ -37,19 +40,28 @@ export default function SignInPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const redirectUri = getRedirectUri();
     const supabase = await getSupabase();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setError(error.message); setLoading(false); return; }
+    if (redirectUri && data.session) {
+      window.location.href = `${redirectUri}#access_token=${data.session.access_token}&refresh_token=${data.session.refresh_token}&type=sso`;
+      return;
+    }
     router.push("/dashboard");
   }
 
   async function handleOAuth(provider: "google" | "github") {
     setOauthLoading(provider);
     setError("");
+    const redirectUri = getRedirectUri();
     const supabase = await getSupabase();
+    const callbackUrl = redirectUri
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?redirect_uri=${encodeURIComponent(redirectUri)}`
+      : `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback` },
+      options: { redirectTo: callbackUrl },
     });
     if (error) { setError(error.message); setOauthLoading(null); }
   }
