@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AuthLayout from "@/components/AuthLayout";
+import { backendAuth } from "@/lib/backendAuth";
 
 const GoogleIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -20,6 +22,7 @@ const GithubIcon = () => (
 );
 
 export default function SignUpPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +30,7 @@ export default function SignUpPage() {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
   function getRedirectUri() {
     return new URLSearchParams(window.location.search).get("redirect_uri") ?? "";
   }
@@ -41,21 +45,26 @@ export default function SignUpPage() {
     setLoading(true);
     setError("");
     const redirectUri = getRedirectUri();
-    const supabase = await getSupabase();
-    const callbackUrl = redirectUri
-      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?redirect_uri=${encodeURIComponent(redirectUri)}`
-      : `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name },
-        emailRedirectTo: callbackUrl,
-      },
-    });
-    if (error) { setError(error.message); setLoading(false); return; }
-    setSuccess(true);
-    setLoading(false);
+    try {
+      const result = await backendAuth.signUp(email, password, name);
+      // If tokens returned, account is ready immediately (no email confirmation)
+      if (result.accessToken && result.refreshToken) {
+        if (redirectUri) {
+          window.location.href = `${redirectUri}#access_token=${result.accessToken}&refresh_token=${result.refreshToken}&type=sso`;
+          return;
+        }
+        const supabase = await getSupabase();
+        await supabase.auth.setSession({ access_token: result.accessToken, refresh_token: result.refreshToken });
+        router.push("/dashboard");
+      } else {
+        // Email confirmation required — tokens not yet issued
+        setSuccess(true);
+        setLoading(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign-up failed.");
+      setLoading(false);
+    }
   }
 
   async function handleOAuth(provider: "google" | "github") {

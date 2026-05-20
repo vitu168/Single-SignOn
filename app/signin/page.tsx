@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthLayout from "@/components/AuthLayout";
+import { backendAuth } from "@/lib/backendAuth";
 
 const GoogleIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -27,6 +28,7 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
+
   function getRedirectUri() {
     return new URLSearchParams(window.location.search).get("redirect_uri") ?? "";
   }
@@ -41,14 +43,24 @@ export default function SignInPage() {
     setLoading(true);
     setError("");
     const redirectUri = getRedirectUri();
-    const supabase = await getSupabase();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); setLoading(false); return; }
-    if (redirectUri && data.session) {
-      window.location.href = `${redirectUri}#access_token=${data.session.access_token}&refresh_token=${data.session.refresh_token}&type=sso`;
-      return;
+    try {
+      const result = await backendAuth.signIn(email, password);
+      if (!result.accessToken || !result.refreshToken) {
+        setError("Sign-in failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+      if (redirectUri) {
+        window.location.href = `${redirectUri}#access_token=${result.accessToken}&refresh_token=${result.refreshToken}&type=sso`;
+        return;
+      }
+      const supabase = await getSupabase();
+      await supabase.auth.setSession({ access_token: result.accessToken, refresh_token: result.refreshToken });
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign-in failed.");
+      setLoading(false);
     }
-    router.push("/dashboard");
   }
 
   async function handleOAuth(provider: "google" | "github") {
