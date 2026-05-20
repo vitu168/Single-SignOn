@@ -2,31 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase";
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient();
-
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
     setLoading(true);
     setError("");
-
+    const { createClient } = await import("@/lib/supabase");
+    const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
     });
-
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
-
+    if (error) { setError(error.message); setLoading(false); return; }
     setSent(true);
     setLoading(false);
   }
@@ -42,12 +34,9 @@ export default function ForgotPasswordPage() {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
           <p className="text-gray-400 text-sm mb-6">
-            We sent a password reset link to{" "}
-            <span className="text-white font-medium">{email}</span>
+            We sent a reset link to <span className="text-white font-medium">{email}</span>
           </p>
-          <Link href="/signin" className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
-            Back to Sign In
-          </Link>
+          <Link href="/signin" className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">Back to Sign In</Link>
         </div>
       </div>
     );
@@ -64,32 +53,21 @@ export default function ForgotPasswordPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white">Forgot password?</h1>
-          <p className="text-gray-400 mt-1 text-sm">Enter your email and we&apos;ll send a reset link</p>
+          <p className="text-gray-400 mt-1 text-sm">We&apos;ll send you a reset link</p>
         </div>
 
         <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 shadow-xl">
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              {error}
-            </div>
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-              />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required
+                className="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm" />
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-colors disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading}
+              className="w-full py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-colors disabled:opacity-50">
               {loading ? "Sending..." : "Send Reset Link"}
             </button>
           </form>
@@ -97,9 +75,7 @@ export default function ForgotPasswordPage() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Remember your password?{" "}
-          <Link href="/signin" className="text-indigo-400 hover:text-indigo-300 font-medium">
-            Sign in
-          </Link>
+          <Link href="/signin" className="text-indigo-400 hover:text-indigo-300 font-medium">Sign in</Link>
         </p>
       </div>
     </div>
